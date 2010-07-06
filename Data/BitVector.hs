@@ -45,9 +45,10 @@ data Endianness
 -- any way (assuming we've defined it correctly); it only affects the internal
 -- representation, not the interface to the outside world.  changing this could
 -- have a slight impact on performance
+{-# INLINE internal_endianness #-}
 internal_endianness :: Endianness
---internal_endianness = LittleEndian
-internal_endianness = BigEndian
+internal_endianness = LittleEndian
+--internal_endianness = BigEndian
 
 {- TODO update this documentation
 
@@ -185,30 +186,20 @@ numToBits n i = map (inj . testBit i) [n-1, n-2..0]
 
 -- pad: add 'n' 0s on the MSB end
 pad :: Int -> BitVector -> BitVector
-pad  = pad_internal LittleEndian
-
-pad_internal :: Endianness -> Int -> BitVector -> BitVector
-pad_internal e n (Vec bs)
-  | e == internal_endianness  = Vec $ (Prelude.++) bs (Prelude.replicate n F)
-  | otherwise                 = Vec $ (Prelude.++) (Prelude.replicate n F) bs
+pad n (Vec bs)
+  = Vec $ case internal_endianness of
+            LittleEndian -> (Prelude.++) bs (Prelude.replicate n F)
+            BigEndian    -> (Prelude.++) (Prelude.replicate n F) bs
 
 -- resize a bitvector so that its total length is n'.
 -- this will either truncate or pad on the MSB end.
 resize :: Int -> BitVector -> BitVector
-resize  = resize_internal LittleEndian
-
-resize_internal :: Endianness -> Int -> BitVector -> BitVector
-resize_internal e n' x
+resize n' v
   | n' < 0     = error "resize: size less than 0"
-  | n' > n     = pad_internal e (n' - n) x
-  | otherwise  = case x of
-                   Vec bs
-                     | e == internal_endianness
-                     -> Vec $ take n' bs
-                     | otherwise
-                     -> Vec $ drop (n - n') bs
+  | n' > n     = pad (n' - n) v
+  | otherwise  = takeR n' v
   where
-    n = length x
+    n = length v
 
 -- makeSameLength xs
 --   = map (resize n) xs
@@ -261,32 +252,49 @@ null (Vec v)     = Prelude.null v
 -- functions named *L index from the left (big-endian).
 
 (!) :: BitVector -> Int -> Bit
-(!) = indexR
+(!) = flip indexR
 
-indexR, indexL :: BitVector -> Int -> Bit
-indexR = index_internal LittleEndian
-indexL = index_internal BigEndian
+indexR, indexL :: Int -> BitVector -> Bit
+indexR i (Vec v)
+  = case internal_endianness of
+      LittleEndian -> v !! i
+      BigEndian    -> v !! (Prelude.length v - i -1)
 
-index_internal :: Endianness -> BitVector -> Int -> Bit
-index_internal e (Vec v) i
-  | e == internal_endianness
-  = (!!) v i
-  | otherwise
-  = (!!) v (Prelude.length v - i - 1)
+indexL i (Vec v)
+  = case internal_endianness of
+      LittleEndian -> v !! (Prelude.length v - i -1)
+      BigEndian    -> v !! i
 
+-- TODO throw error if out of range?
 sliceR, sliceL :: Int -> Int -> BitVector -> BitVector
-sliceR = slice_internal LittleEndian
-sliceL = slice_internal BigEndian
 
--- take a slice of width 'n' starting at index 'i'.
-slice_internal :: Endianness -> Int -> Int -> BitVector -> BitVector
-slice_internal e i n (Vec v)
-  = error "TODO slice"
-  {-Vec (V.slice i' n v)
-  where
-    i' | e == internal_endianness = i
-       | otherwise                = V.length v - i - 1
-  -}
+-- [i-:n]
+sliceR i n = takeL n . takeR (i+1)
+
+-- [i+:n]
+sliceL i n = takeL n . dropL i
+
+-- TODO throw error if out of range?
+takeL, takeR, dropL, dropR :: Int -> BitVector -> BitVector
+takeL i (Vec bs)
+  = Vec $ case internal_endianness of
+            LittleEndian -> drop (Prelude.length bs - i) bs
+            BigEndian    -> take i bs
+
+takeR i (Vec bs)
+  = Vec $ case internal_endianness of
+            LittleEndian -> take i bs
+            BigEndian    -> drop (Prelude.length bs - i) bs
+
+dropL i (Vec bs)
+  = Vec $ case internal_endianness of
+            LittleEndian -> take (Prelude.length bs - i) bs
+            BigEndian    -> drop i bs
+
+dropR i (Vec bs)
+  = Vec $ case internal_endianness of
+            LittleEndian -> drop i bs
+            BigEndian    -> take (Prelude.length bs - i) bs
 
 -- --------------------
 -- specialized folds
