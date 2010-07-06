@@ -234,7 +234,10 @@ replicate n b = Vec (Prelude.replicate n b)
 -- snoc :: BitVector -> Bit -> BitVector
 
 (++) :: BitVector -> BitVector -> BitVector
-(++) (Vec v1) (Vec v2) = Vec (v1 Prelude.++ v2)
+(++) (Vec v1) (Vec v2)
+  = Vec $ case internal_endianness of
+            BigEndian    -> v1 Prelude.++ v2
+            LittleEndian -> v2 Prelude.++ v1
 
 concat :: [BitVector] -> BitVector
 concat = foldr (++) empty
