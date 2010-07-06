@@ -168,7 +168,9 @@ neededBits x = fromIntegral (bitWidth x 1 (0::Integer))
       | otherwise = bitWidth n (2*p) (res+1)
 -}
 
--- TODO handle endianness
+-- bitsToNum and numToBits operate on a big-endian list of bits.
+-- functions that use them will be more efficient when internal_endianness
+-- is BigEndian, since they won't have to reverse the list.
 bitsToNum :: forall a v . (SubType Bool v, Bits a, Num a) => [v] -> Maybe a
 bitsToNum = f 0
     where f :: a -> [v] -> Maybe a
@@ -322,7 +324,6 @@ plus' x y
   = fromBits $ snd $ f (toBits (resize n x)) (toBits (resize n y))
   where
     n = 1 + max (length x) (length y)
-    -- TODO operate on Vector instead of [Bit]
     f [] []         = (F, [])
     f (a:as) (b:bs) = let s       = a `xor` b `xor` c
                           c'      = (a && b) || (b && c) || (a && c)
@@ -334,7 +335,6 @@ plus'' x y
   = fromBits $ f F (toBits (resize n x)) (toBits (resize n y))
   where
     n = 1 + max (length x) (length y)
-    -- TODO operate on Vector instead of [Bit]
     f _ [] []         = []
     f c (a:as) (b:bs) = let s       = a `xor` b `xor` c
                             c'      = (a && b) || (b && c) || (a && c)
