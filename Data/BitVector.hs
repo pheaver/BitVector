@@ -22,11 +22,16 @@ import Prelude hiding (Ord(..), Eq(..), (&&), (||), not, and, or, length, (++))
 import qualified Prelude
 import Data.Generics    ( Data, Typeable )
 import Data.Bits (testBit, Bits)
-import Data.Vector (Vector)
-import qualified Data.Vector as V
 
 import Data.Classes
 import Data.Bit
+
+-- --------------------
+
+-- the internal representation of a BitVector
+data BitVector
+  = Vec [Bit]
+  deriving (Prelude.Eq, Prelude.Ord, Data, Typeable)
 
 -- --------------------
 -- discussion of Endianness
@@ -44,7 +49,7 @@ internal_endianness :: Endianness
 --internal_endianness = LittleEndian
 internal_endianness = BigEndian
 
-{-
+{- TODO update this documentation
 
 Due to the nuances of the languages, endianness can mean something different in
 Verilog and Haskell.  In fact, we have 3 different data types for which we need
@@ -114,18 +119,14 @@ In summary, endianness for the aforementioned types are as follows:
 -}
 
 -- --------------------
--- BitVector definition
-
-data BitVector
-  = Vec (Vector Bit)
-  -- Lit Int Integer
-  deriving (Prelude.Eq, Prelude.Ord, Data, Typeable)
+-- conversion utility functions.
+-- printing to string and converting to and from [Bit].
 
 -- TODO
 -- pretty print - take in base, yield [Doc] so user can insert punctuation
 
 showBitVector :: Endianness -> (Bit -> Char) -> BitVector -> String
-showBitVector e f (Vec v) = map f (maybeReverse e (V.toList v))
+showBitVector e f (Vec bs) = map f (maybeReverse e bs)
 
 instance Show BitVector where
   show = showBitVector BigEndian f
@@ -136,11 +137,11 @@ instance Show BitVector where
 -- convert a big-endian list of bits (where most significant bit is index 0, on
 -- the left) to a BitVector.
 fromBits :: [Bit] -> BitVector
-fromBits = Vec . V.fromList . maybeReverse BigEndian
+fromBits = Vec . maybeReverse BigEndian
 
 -- convert a BitVector to a big-endian list of bits.
 toBits :: BitVector -> [Bit]
-toBits (Vec v) = maybeReverse BigEndian (V.toList v)
+toBits (Vec bs) = maybeReverse BigEndian bs
 
 maybeReverse :: Endianness -> [a] -> [a]
 maybeReverse e xs
@@ -151,12 +152,21 @@ maybeReverse e xs
 -- utility functions
 
 reverseIndex :: BitVector -> Int -> Int
-reverseIndex v i = length v - i - 1
+reverseIndex (Vec v) i = Prelude.length v - i - 1
 
 -- TODO handle negative numbers
 neededBits :: (Integral a) => a -> Int
 neededBits x
   = ceiling (logBase 2 (fromIntegral x+1))
+
+{-
+neededBits :: (Num a, Num b, Prelude.Ord a) => a -> b
+neededBits x = fromIntegral (bitWidth x 1 (0::Integer))
+  where
+    bitWidth n p res
+      | n < p = res
+      | otherwise = bitWidth n (2*p) (res+1)
+-}
 
 -- TODO handle endianness
 bitsToNum :: forall a v . (SubType Bool v, Bits a, Num a) => [v] -> Maybe a
@@ -171,29 +181,14 @@ bitsToNum = f 0
 numToBits :: (SubType Bool v, Bits a, Num a) => Int -> a -> [v]
 numToBits n i = map (inj . testBit i) [n-1, n-2..0]
 
-{-
-neededBits :: (Num a, Num b, Prelude.Ord a) => a -> b
-neededBits x = fromIntegral (bitWidth x 1 (0::Integer))
-  where
-    bitWidth n p res
-      | n < p = res
-      | otherwise = bitWidth n (2*p) (res+1)
--}
-
 -- pad: add 'n' 0s on the MSB end
 pad :: Int -> BitVector -> BitVector
 pad  = pad_internal LittleEndian
 
 pad_internal :: Endianness -> Int -> BitVector -> BitVector
-pad_internal e n (Vec v)
-  | e == internal_endianness  = Vec ((V.++) v (V.replicate n F))
-  | otherwise                 = Vec ((V.++) (V.replicate n F) v)
-
--- pad n (Lit n0 v)
---   = Lit (n0 + n) v
-
--- signExtend n (Vec v)
---   =
+pad_internal e n (Vec bs)
+  | e == internal_endianness  = Vec $ (Prelude.++) bs (Prelude.replicate n F)
+  | otherwise                 = Vec $ (Prelude.++) (Prelude.replicate n F) bs
 
 -- resize a bitvector so that its total length is n'.
 -- this will either truncate or pad on the MSB end.
@@ -205,13 +200,11 @@ resize_internal e n' x
   | n' < 0     = error "resize: size less than 0"
   | n' > n     = pad_internal e (n' - n) x
   | otherwise  = case x of
-                   Vec v
+                   Vec bs
                      | e == internal_endianness
-                     -> Vec (V.take n' v)
+                     -> Vec $ take n' bs
                      | otherwise
-                     -> Vec (V.drop (n - n') v)
-
-                   -- Lit _ v -> Lit n (v `mod` (2^n))
+                     -> Vec $ drop (n - n') bs
   where
     n = length x
 
@@ -223,14 +216,13 @@ resize_internal e n' x
 -- initialization
 
 empty :: BitVector
-empty = Vec V.empty
---empty = Lit 0 0
+empty = Vec []
 
 singleton :: Bit -> BitVector
-singleton b = Vec (V.singleton b)
+singleton b = Vec [b]
 
 replicate :: Int -> Bit -> BitVector
-replicate n b = Vec (V.replicate n b)
+replicate n b = Vec (Prelude.replicate n b)
 
 -- generate :: Int -> (Int -> Bit) -> BitVector
 -- generate =
@@ -242,7 +234,7 @@ replicate n b = Vec (V.replicate n b)
 -- snoc :: BitVector -> Bit -> BitVector
 
 (++) :: BitVector -> BitVector -> BitVector
-(++) (Vec v1) (Vec v2) = Vec (v1 V.++ v2)
+(++) (Vec v1) (Vec v2) = Vec (v1 Prelude.++ v2)
 
 concat :: [BitVector] -> BitVector
 concat = foldr (++) empty
@@ -252,18 +244,16 @@ concat = foldr (++) empty
 
 {-# INLINE length #-}
 length :: BitVector -> Int
-length (Vec v)   = V.length v
---length (Lit w _) = w
+length (Vec v)   = Prelude.length v
 
 {-# INLINE null #-}
 null :: BitVector -> Bool
-null (Vec v)     = V.null v
---null (Lit w _)   = w == 0
+null (Vec v)     = Prelude.null v
 
 -- --------------------
 -- indexing.
--- by default, we index from the right (little-endian).
--- functions named *R index from the left (big-endian).
+-- functions named *R index from the right (little-endian).
+-- functions named *L index from the left (big-endian).
 
 (!) :: BitVector -> Int -> Bit
 (!) = indexR
@@ -272,58 +262,44 @@ indexR, indexL :: BitVector -> Int -> Bit
 indexR = index_internal LittleEndian
 indexL = index_internal BigEndian
 
--- index (Lit w v) n
---   | n < 0 || n >= w
---   = error "!: index out of range"
---   | otherwise
---   = inj (testBit v n)
-
 index_internal :: Endianness -> BitVector -> Int -> Bit
 index_internal e (Vec v) i
   | e == internal_endianness
-  = (V.!) v i
+  = (!!) v i
   | otherwise
-  = (V.!) v (V.length v - i - 1)
+  = (!!) v (Prelude.length v - i - 1)
 
 sliceR, sliceL :: Int -> Int -> BitVector -> BitVector
 sliceR = slice_internal LittleEndian
 sliceL = slice_internal BigEndian
 
+-- take a slice of width 'n' starting at index 'i'.
 slice_internal :: Endianness -> Int -> Int -> BitVector -> BitVector
 slice_internal e i n (Vec v)
-  = Vec (V.slice i' n v)
+  = error "TODO slice"
+  {-Vec (V.slice i' n v)
   where
     i' | e == internal_endianness = i
        | otherwise                = V.length v - i - 1
-
--- slice i n (Lit w v)
---   | i < 0 || n < 0 || i+n > w
---   = error "slice: bad index or length"
---   | otherwise
---   = Lit n (v `div` toInteger (2^i) `mod` (2^n))
+  -}
 
 -- --------------------
 -- specialized folds
 
 and :: BitVector -> Bit
 and (Vec v)
-  = V.foldr (&&) T v
--- and (Lit n v)
---   = inj $ all (testBit v) [0..n-1]
+  = foldr (&&) T v
 
 or :: BitVector -> Bit
 or (Vec v)
-  = V.foldr (||) F v
--- or (Lit n v)
---   = inj $ any (testBit v) [0..n-1]
+  = foldr (||) F v
 
 -- --------------------
 -- TODO arithmetic
 
 instance Num BitVector where
   -- TODO handle signs correctly
-  fromInteger i = -- Lit (neededBits i + 1) i
-                  fromNum (neededBits i + 1) i
+  fromInteger i = fromNum (neededBits i + 1) i
                   -- leave room for sign - this is what Verilog does
 
   (+) x y = arithOp (1 + max (length x) (length y)) (+) x y
@@ -366,21 +342,18 @@ arithOp :: Int -> (Integer -> Integer -> Integer)
 arithOp n f x y
   = case (toNum x, toNum y) of
       (Just v1, Just v2) -> fromNum n (f v1 v2)
-      _                  -> Vec (V.replicate n U)
+      _                  -> Vec (Prelude.replicate n U)
 
 toNum :: Num a => BitVector -> Maybe a
 toNum (Vec v)
-  = case V.mapM prj v of
-      Just bs -> let n = V.length v
+  = case mapM prj v of
+      Just bs -> let n = Prelude.length v
                      f i b = if b then 2^(n-1-i) else 0
-                 in Just $ V.sum $ V.imap f bs
+                 in Just $ sum $ zipWith f [0..n-1] bs
       Nothing -> Nothing
--- toNum (Lit _ v)
---   = Just (fromIntegral v)
 
 fromNum :: (Integral a) => Int -> a -> BitVector
 fromNum w x
-  -- = error "TODO fromNum" -- Lit w (Prelude.toInteger x)
   = fromBits (numToBits w (Prelude.toInteger x))
 
 -- --------------------
