@@ -13,7 +13,7 @@ import Data.Classes
 -- true(1), false(0), unknown(U)
 
 data Bit
-  = F | T | U
+  = F | T | Z | U
   deriving (Prelude.Eq, Prelude.Ord, Show, Bounded, Enum, Data, Typeable)
 
 instance SubType Bool Bool where
