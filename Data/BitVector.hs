@@ -23,23 +23,20 @@ import qualified Prelude
 import Data.Generics    ( Data, Typeable )
 import Data.Bits (testBit, Bits)
 
-import Data.Classes
 import Data.Bit
+import Data.Classes
+import Data.Endianness
 
 -- --------------------
 
+-- type BitVector = BitVector' Bit
+
 -- the internal representation of a BitVector
-data BitVector
+newtype BitVector
   = Vec [Bit]
   deriving (Prelude.Eq, Prelude.Ord, Data, Typeable)
 
 -- --------------------
--- discussion of Endianness
-
-data Endianness
-  = LittleEndian
-  | BigEndian
-  deriving (Prelude.Eq)
 
 -- changing this variable will not affect the functionality of this module in
 -- any way (assuming we've defined it correctly); it only affects the internal
@@ -49,75 +46,6 @@ data Endianness
 internal_endianness :: Endianness
 internal_endianness = LittleEndian
 --internal_endianness = BigEndian
-
-{- TODO update this documentation
-
-Due to the nuances of the languages, endianness can mean something different in
-Verilog and Haskell.  In fact, we have 3 different data types for which we need
-to clearly define endianness.
-
-  * Verilog bit-vectors - as dictated by the Verilog standard)
-
-  * Haskell list of bits - anything of type [Bit] or Vector Bit
-
-  * BitVector - what this module defines
-
-In Verilog, words are always written with the least significant on the right.
-That is, {0,0,1,0} corresponds to the number 2 regardless of endianness.
-
-Endianness simply determines how we index into a word.  In little endian, index
-0 is on the right and we count up from right ot left, and in big endian it is on
-the left.  Thus, in the bit-vector {0,0,1,0}, the 1 is at index 1 if it is
-little endian and index 2 if it is big endian.
-
-The endianness of a bit-vector is determined by its declaration:
-
-  wire [3:0] x;  // little endian
-  wire [0:3] y;  // big endian
-
-In this library, bit-vectors are represented internally as /big endian/ in the
-sense that index 0 is the most significant (this is set by the
-'internal_endianness' variable).  Externally, however, bit-vectors appear as
-/little endian/ to the user, with the default index functions always indexing
-from the right (least significant) and the alternate index functions (named *R)
-indexing from the left (most significant).
-
-The confusion occurs when we convert between a Haskell List or Vector and a
-BitVector. In Haskell, Lists and Vectors follow the convention that they always
-read from left to right and that index 0 is on the left.  For Haskell Lists and
-Vectors, we define endianness based on the order of the bits, not how we index
-into them.  Little endianness is when the left-most bit (index 0) is the least
-significant, and big endianness is when the right-most bit is the least
-significant.  Thus [F, F, T, F] represents the number 2 if it is /big-endian/
-and the number 4 if it is /little-endian/.  Verilog bit-vectors always have the
-least significant bit on the right, regardless of endianness.  Therefore, any
-list of Bits should also have the least significant on the right, which by the
-above definition would be /big-endian/.  The 'fromBits' and 'toBits' functions
-expect and product /big-endian/ lists of bits.
-
-In summary, endianness for the aforementioned types are as follows:
-
-  * Verilog bit-vector
-      - least significant is always on the right, regardless of endianness
-      - endianness defines which side is index 0, and whether you count up or
-        down when iterating from least to most significant.
-      - [7:0] is little-endian, [0:7] is big-endian.
-
-  * Haskell list of bits
-      - index 0 is always on the left; that's baked into Haskell
-      - big-endian is when least significant is on the left (index 0); this is
-        what Verilog does, regardless of endianness
-      - in this module, anything of type [Bit] is assumed to be big-endian
-
-  * BitVector
-      - internal representation is Vector Bit, where endianness is defined by
-        the "Haskell list of bits" defintion
-
-      - user chooses what endianness they want. if the user wants little-endian
-        BitVector, use the right-indexing functions (indexR, sliceR); for
-        big-endian BitVector, use the left indexing functions
-        (indexL, sliceL).  all other functions are endianness-agnostic.
--}
 
 -- --------------------
 -- conversion utility functions.

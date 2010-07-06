@@ -16,6 +16,10 @@ data Bit
   = F | T | U
   deriving (Prelude.Eq, Prelude.Ord, Show, Bounded, Enum, Data, Typeable)
 
+instance SubType Bool Bool where
+  inj = id
+  prj = Just
+
 instance SubType Bool Bit where
   inj True  = T
   inj False = F
@@ -74,7 +78,8 @@ instance Compare Bit where
   max _ _ = U
 
 -- not 100% sure about this one
--- in Verilog, 1 >= U (and U <= 1) is defined, but 0 <= U (and U >= 0) is undefined
+-- in Verilog simulation, (at least iverilog) 1 >= U (and U <= 1) is defined,
+-- but 0 <= U (and U >= 0) is undefined
 instance Ord Bit Bit where
   T < _   = F
   F < T   = T
