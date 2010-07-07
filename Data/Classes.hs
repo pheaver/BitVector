@@ -35,8 +35,13 @@ class Boolean a where
   isTrue  :: a -> Bool
   isFalse :: a -> Bool
 
-  (&&), (||), xor, xnor :: a -> a -> a
   not :: a -> a
+  (&&), (||), xor, nor, xnor, nand :: a -> a -> a
+
+  xor  x y = x && not y || not x && y
+  nor  x y = not (x || y)
+  xnor x y = x && y || not x && not y
+  nand x y = not (x && y)
 
 class Eq a b where
   (==), (/=) :: a -> a -> b
@@ -68,8 +73,6 @@ instance Boolean (Maybe Bool) where
   isFalse    = maybe False (Prelude.not)
   (&&)       = liftM2 (&&)
   (||)       = liftM2 (||)
-  xor        = liftM2 xor
-  xnor       = liftM2 xnor
   not        = liftM not
 
 instance Prelude.Eq a => Eq a Bool where
