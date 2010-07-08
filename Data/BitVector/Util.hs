@@ -22,13 +22,13 @@ import Data.Bits (Bits, (.&.))
 -- {-# INLINE neededBits #-}
 neededBits :: (Integral a) => a -> Int
 neededBits x
-  = ceiling (logBase 2 (fromIntegral (x+1)))
+  = ceiling (logBase 2 (fromIntegral (x+1)) :: Float)
 
 -- find the index of the highest bit that is set
 -- {-# INLINE msbIndex #-}
 msbIndex :: (Integral a) => Int -> a -> Int
 msbIndex w 0 = w
-msbIndex _ x = floor (logBase 2 (fromIntegral x))
+msbIndex _ x = floor (logBase 2 (fromIntegral x) :: Float)
 
 -- mask the upper bits of a number so that only the lower 'n' bits are set.
 {-# INLINE maskWidth #-}
