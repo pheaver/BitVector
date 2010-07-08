@@ -17,7 +17,7 @@
 module Data.BitVector.BitVector2 where
 
 import Prelude hiding (replicate, not, (&&), (||), Eq, Ord, and, or,
-                       (==), (/=), (>), (<), (>=), (<=), min, max)
+                       (==), (/=), (>), (<), (>=), (<=), min, max, length)
 import qualified Prelude
 import Data.Bits hiding (setBit)
 import qualified Data.Bits as Bits
@@ -65,17 +65,10 @@ showBit Z = 'Z'
 showBitVector :: (Bit -> Char) -> BitVector -> String
 showBitVector f bv@(BV w _ _)
   | w == 0    = [f F]
-  | otherwise = [ f (getBit bv i) | i <- [w-1, w-2..0] ]
+  | otherwise = [ f (bv ! i) | i <- [w-1, w-2..0] ]
 
 ----------------------------------------
-
--- {-# INLINE bv_width #-}
-bv_width :: BitVector -> Int
-bv_width (BV w _ _) = w
-
--- {-# INLINE getBit #-}
-getBit :: BitVector -> Int -> Bit
-getBit (BV _ a b) i = convertToBit (testBit a i, testBit b i)
+-- internal utility functions
 
 -- {-# INLINE convertToBit #-}
 convertToBit :: (Bool, Bool) -> Bit
@@ -116,18 +109,51 @@ b_bit = flip elem [Z, U]
 -- b_bit = flip testBit 1 . fromEnum
 
 ----------------------------------------
--- functions to create and convert bit-vectors
+-- initialization
 
-low, high, unknown :: Int -> BitVector
-low     = flip replicate F
-high    = flip replicate T
-unknown = flip replicate U
+empty :: BitVector
+empty = BV 0 0 0
+
+singleton :: Bit -> BitVector
+singleton F = BV 1 0 0
+singleton T = BV 1 1 0
+singleton U = BV 1 1 1
+singleton Z = BV 1 0 1
 
 replicate :: Int -> Bit -> BitVector
 replicate n F = BV n 0 0
 replicate n T = BV n (2^n-1) 0
 replicate n U = BV n (2^n-1) (2^n-1)
 replicate n Z = BV n 0 (2^n-1)
+
+low, high, unknown :: Int -> BitVector
+low     = flip replicate F
+high    = flip replicate T
+unknown = flip replicate U
+
+----------------------------------------
+-- conversion
+
+fromBits, fromBitsBE, fromBitsLE :: [Bit] -> BitVector
+fromBits xs = BV w a'' b''
+  where
+    (a'', b'')     = f (w - 1) 0 0 xs
+    w              = Prelude.length xs
+
+    f _ a b []     = (a, b)
+    f i a b (y:ys) = let a' = setBitA (a*2) 0 y
+                         b' = setBitB (b*2) 0 y
+                     in a' `seq` b' `seq` f (i-1) a' b' ys
+
+fromBitsBE = fromBits
+fromBitsLE = fromBits . reverse
+
+toBits, toBitsBE, toBitsLE :: BitVector -> [Bit]
+toBits     = toBitsBE
+toBitsBE v = map (indexR v) [w-1, w-2..0]
+  where w = length v
+toBitsLE v = map (indexR v) [0..w-1]
+  where w = length v
 
 toNum :: (Num a) => BitVector -> Maybe a
 toNum (BV _ a b)
@@ -142,20 +168,16 @@ fromNum w x
   | w <= 0    = BV 0 0 0
   | otherwise = BV w (maskWidth w (fromIntegral x)) 0
 
-fromBits :: [Bit] -> BitVector
-fromBits xs = BV w a'' b''
-  where
-    (a'', b'')     = f (w - 1) 0 0 xs
-    w              = length xs
+----------------------------------------
+-- length information
 
-    f _ a b []     = (a, b)
-    f i a b (y:ys) = let a' = setBitA (a*2) 0 y
-                         b' = setBitB (b*2) 0 y
-                     in a' `seq` b' `seq` f (i-1) a' b' ys
+{-# INLINE length #-}
+length :: BitVector -> Int
+length (BV w _ _) = w
 
-toBits :: BitVector -> [Bit]
-toBits v = map (getBit v) [w-1, w-2..0]
-  where w = bv_width v
+{-# INLINE null #-}
+null :: BitVector -> Bool
+null (BV w _ _)  = w == 0
 
 ----------------------------------------
 -- map and fold functions
@@ -167,11 +189,11 @@ toBits v = map (getBit v) [w-1, w-2..0]
 {-
 bv_map :: (Bit -> Bit) -> BitVector -> BitVector
 bv_map f v
-  = BV (bv_width v) a b
+  = BV (length v) a b
   where
-    w          = bv_width v
+    w          = length v
     (a, b)     = foldl' g (0, 0) [0..w-1]
-    g (a, b) i = let x  = f (getBit v i)
+    g (a, b) i = let x  = f (indexR v i)
                      a' = if a_bit x then Bits.setBit a i else a
                      b' = if b_bit x then Bits.setBit b i else b
                  in (a', b')
@@ -180,9 +202,9 @@ bv_map2 :: (Bit -> Bit -> Bit) -> BitVector -> BitVector -> BitVector
 bv_map2 f v0 v1
   = BV w a b
   where
-    w          = max (bv_width v0) (bv_width v1)
+    w          = max (length v0) (length v1)
     (a, b)     = foldl' g (0, 0) [0..w-1]
-    g (a, b) i = let x  = f (getBit v0 i) (getBit v1 i)
+    g (a, b) i = let x  = f (indexR v0 i) (indexR v1 i)
                      a' = if a_bit x then Bits.setBit a i else a
                      b' = if b_bit x then Bits.setBit b i else b
                  in (a', b')
@@ -191,13 +213,14 @@ bv_foldl :: (a -> Bit -> a) -> a -> BitVector -> a
 bv_foldl f x v
   = g x 0
   where
-    w     = bv_width v
+    w     = length v
     g y i | i == w    = y
-          | otherwise = g (f y (getBit v i)) (i+1)
+          | otherwise = g (f y (indexR v i)) (i+1)
 -}
 
 ----------------------------------------
--- structural operations
+-- structural operations.
+-- index, resizing, concatenation, shift, rotate
 
 resize :: Int -> BitVector -> BitVector
 resize n (BV w a b)
@@ -228,12 +251,14 @@ append (BV w0 a0 b0) (BV w1 a1 b1)
   = BV (w0 + w1) (Bits.shiftL a0 w1 .|. a1) (Bits.shiftL b0 w1 .|. b1)
 
 concat :: [BitVector] -> BitVector
-concat xs = foldl append (BV 0 0 0) xs
+concat = foldr append empty
 
-index, indexR, indexL :: BitVector -> Int -> Bit
-index      = getBit
-indexR     = getBit
-indexL v i = getBit v (bv_width v - i - 1)
+(!), indexR, indexL :: BitVector -> Int -> Bit
+(!) = indexR
+
+indexR (BV _ a b) i = convertToBit (testBit a i, testBit b i)
+
+indexL v i = indexR v (length v - i - 1)
 
 takeL :: Int -> BitVector -> BitVector
 takeL i (BV w a b)
@@ -290,7 +315,7 @@ rotateR (BV w a b) i0
     b' = (b `Bits.shiftR` i) .|. (b `Bits.shiftL` (w-i))
 
 ----------------------------------------
--- bitwise boolean operations, both binary (map/zip) and unary (fold)
+-- bitwise boolean operations, both binary and unary
 
 -- these functions can all be defined in terms of bv_map, bv_map2 or bv_fold,
 -- but the specialized versions below are ridiculously faster.
@@ -304,10 +329,10 @@ rotateR (BV w a b) i0
 -- and then use that to define all of the functions below.
 
 instance Boolean BitVector where
-  true    = BV 1 1 0
-  false   = BV 1 0 0
-  isTrue  = isTrue  . flip getBit 0
-  isFalse = isFalse . flip getBit 0
+  false   = singleton false
+  true    = singleton true
+  isTrue  = isTrue  . flip indexR 0
+  isFalse = isFalse . flip indexR 0
   not     = bv_not
   (&&)    = bv_and
   (||)    = bv_or
@@ -423,6 +448,10 @@ instance Eq BitVector Bit where
   (==) = bv_eq
   (/=) = bv_neq
 
+instance Eq BitVector BitVector where
+  (==) x y = singleton (bv_eq x y)
+  (/=) x y = singleton (bv_neq x y)
+
 instance Prelude.Eq BitVector where
   (==) x y = bv_eq_xz x y
   (/=) x y = not (bv_eq_xz x y)
@@ -436,6 +465,12 @@ instance Ord BitVector Bit where
   (<)  = bv_lt
   (>=) = bv_gte
   (<=) = bv_lte
+
+instance Ord BitVector BitVector where
+  (>)  x y = singleton (bv_gt x y)
+  (<)  x y = singleton (bv_lt x y)
+  (>=) x y = singleton (bv_gte x y)
+  (<=) x y = singleton (bv_lte x y)
 
 bv_eq :: BitVector -> BitVector -> Bit
 bv_eq (BV w0 a0 b0) (BV w1 a1 b1)
@@ -473,7 +508,7 @@ bv_lt v0@(BV w0 a0 b0) v1@(BV w1 a1 b1)
     w = max w0 w1
 
     f (-1) = F
-    f i = case (getBit v0 i, getBit v1 i) of
+    f i = case (v0 ! i, v1 ! i) of
             (F, T) -> T
             (T, F) -> F
             (T, T) -> f (i-1)
@@ -488,7 +523,7 @@ bv_lte v0@(BV w0 a0 b0) v1@(BV w1 a1 b1)
     w = max w0 w1
 
     f (-1) = T
-    f i = case (getBit v0 i, getBit v1 i) of
+    f i = case (v0 ! i, v1 ! i) of
             (F, T) -> T
             (T, F) -> F
             (T, T) -> f (i-1)
@@ -503,7 +538,7 @@ bv_gt v0@(BV w0 a0 b0) v1@(BV w1 a1 b1)
     w = max w0 w1
 
     f (-1) = F
-    f i = case (getBit v0 i, getBit v1 i) of
+    f i = case (v0 ! i, v1 ! i) of
             (T, F) -> T
             (F, T) -> F
             (T, T) -> f (i-1)
@@ -518,7 +553,7 @@ bv_gte v0@(BV w0 a0 b0) v1@(BV w1 a1 b1)
     w = max w0 w1
 
     f (-1) = T
-    f i = case (getBit v0 i, getBit v1 i) of
+    f i = case (v0 ! i, v1 ! i) of
             (T, F) -> T
             (F, T) -> F
             (T, T) -> f (i-1)
@@ -552,7 +587,7 @@ instance Num BitVector where
 
   -- abs -- TODO
 
-  signum v = replicate (bv_width v) $ noZ $ indexL v 0
+  signum v = replicate (length v) $ noZ $ indexL v 0
 
   negate v = bv_not v + 1
 
@@ -564,7 +599,7 @@ plus' :: Bool -> BitVector -> BitVector -> BitVector
 plus' signed v0 v1
   = plus w signed v0 v1
   where
-    w = 1 + max (bv_width v0) (bv_width v1)
+    w = 1 + max (length v0) (length v1)
 
 plus :: Int -> Bool -> BitVector -> BitVector -> BitVector
 plus = arithOp (+)
@@ -573,7 +608,7 @@ minus' :: Bool -> BitVector -> BitVector -> BitVector
 minus' signed v0 v1
   = minus w signed v0 v1
   where
-    w = 1 + max (bv_width v0) (bv_width v1)
+    w = 1 + max (length v0) (length v1)
 
 minus :: Int -> Bool -> BitVector -> BitVector -> BitVector
 minus = arithOp (-)
@@ -582,7 +617,7 @@ times' :: Bool -> BitVector -> BitVector -> BitVector
 times' signed v0 v1
   = times w signed v0 v1
   where
-    w = bv_width v0 + bv_width v1
+    w = length v0 + length v1
 
 times :: Int -> Bool -> BitVector -> BitVector -> BitVector
 times = arithOp (*)
