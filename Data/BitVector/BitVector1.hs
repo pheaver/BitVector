@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 -- |
--- Module      :  Data.BitVector
+-- Module      :  Data.BitVector.BitVector1
 -- Copyright   :  (c) 2010 Philip Weaver
 -- License     :  BSD3
 --
@@ -16,12 +16,11 @@
 {-# LANGUAGE FlexibleContexts    #-}
 {-# OPTIONS_DERIVE --append #-}
 
-module Data.BitVector.Reference where
+module Data.BitVector.BitVector1 where
 
 import Prelude hiding (Ord(..), Eq(..), (&&), (||), not, and, or, length, (++))
 import qualified Prelude
 import Data.Generics    ( Data, Typeable )
-import Data.Bits (testBit, Bits)
 
 import Data.Bit
 import Data.BitVector.Util
@@ -31,8 +30,6 @@ import Data.Compare
 import Data.Endianness
 
 -- --------------------
-
--- type BitVector = BitVector' Bit
 
 -- the internal representation of a BitVector
 newtype BitVector
@@ -65,15 +62,30 @@ instance Show BitVector where
     where f T = '1'
           f F = '0'
           f U = 'X'
+          f Z = 'Z'
+
+{-# INLINE fromBits #-}
+fromBits :: [Bit] -> BitVector
+fromBits = Vec
+
+{-# INLINE toBits #-}
+toBits :: BitVector -> [Bit]
+toBits (Vec bs) = bs
 
 -- convert a big-endian list of bits (where most significant bit is index 0, on
 -- the left) to a BitVector.
-fromBits :: [Bit] -> BitVector
-fromBits = Vec . maybeReverse BigEndian
+fromBitsBE :: [Bit] -> BitVector
+fromBitsBE = Vec . maybeReverse BigEndian
+
+fromBitsLE :: [Bit] -> BitVector
+fromBitsLE = Vec . maybeReverse LittleEndian
 
 -- convert a BitVector to a big-endian list of bits.
-toBits :: BitVector -> [Bit]
-toBits (Vec bs) = maybeReverse BigEndian bs
+toBitsBE :: BitVector -> [Bit]
+toBitsBE (Vec bs) = maybeReverse BigEndian bs
+
+toBitsLE :: BitVector -> [Bit]
+toBitsLE (Vec bs) = maybeReverse LittleEndian bs
 
 maybeReverse :: Endianness -> [a] -> [a]
 maybeReverse e xs
@@ -239,6 +251,7 @@ plus' x y
                           c'      = (a && b) || (b && c) || (a && c)
                           (c, ss) = f as bs
                       in (c', s : ss)
+    f _ _ = error "plus'"
 
 plus'' :: BitVector -> BitVector -> BitVector
 plus'' x y
@@ -249,6 +262,7 @@ plus'' x y
     f c (a:as) (b:bs) = let s       = a `xor` b `xor` c
                             c'      = (a && b) || (b && c) || (a && c)
                         in s : f c' as bs
+    f _ _ _ = error "plus''"
 
 arithOp :: Int -> (Integer -> Integer -> Integer)
         -> BitVector -> BitVector -> BitVector

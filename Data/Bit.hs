@@ -38,6 +38,11 @@ instance Conditional Bit ([Bit], [Bit]) where
       as = [ U | _ <- xs1 | _ <- ys1 ]
       bs = [ U | _ <- xs2 | _ <- ys2 ]
 
+{-# INLINE noZ #-}
+noZ :: Bit -> Bit
+noZ Z = U
+noZ x = x
+
 isKnown :: Bit -> Bool
 isKnown T = True
 isKnown F = True
