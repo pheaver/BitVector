@@ -7,7 +7,8 @@ import Prelude hiding (Ord(..), Eq(..), (&&), (||), not)
 import qualified Prelude
 import Data.Generics    ( Data, Typeable )
 
-import Data.Classes
+import Data.Boolean
+import Data.Compare
 
 -- --------------------
 -- true(1), false(0), unknown(U)
@@ -16,16 +17,14 @@ data Bit
   = F | T | Z | U
   deriving (Prelude.Eq, Prelude.Ord, Show, Bounded, Enum, Data, Typeable)
 
-instance SubType Bool Bool where
-  inj = id
-  prj = Just
+fromBool :: Bool -> Bit
+fromBool True  = T
+fromBool False = F
 
-instance SubType Bool Bit where
-  inj True  = T
-  inj False = F
-  prj T     = Just True
-  prj F     = Just False
-  prj _     = Nothing
+toBool :: Bit -> Maybe Bool
+toBool T = Just True
+toBool F = Just False
+toBool _ = Nothing
 
 instance Boolean Bit where
   true      = T

@@ -20,9 +20,9 @@ module Data.BitVector.UtilBE
     bitsToNum, numToBits
   ) where
 
+import Data.Bit
 import Data.Bits
 import Data.BitVector.Util
-import Data.Classes
 import Data.Endianness
 
 {- TODO
@@ -38,12 +38,14 @@ bv_endianness = BigEndian
 
 ----------------------------------------
 
-bitsToNum :: forall a v . (SubType Bool v, Bits a, Num a) => [v] -> Maybe a
+-- TODO make these work for any Boolean type (Bool, Bit, etc.)
+
+bitsToNum :: forall a . (Bits a, Num a) => [Bit] -> Maybe a
 bitsToNum = f 0
   where
-    f :: a -> [v] -> Maybe a
+    f :: a -> [Bit] -> Maybe a
     f acc []     = Just acc
-    f acc (x:xs) = case prj x of
+    f acc (x:xs) = case toBool x of
                      Just b -> let acc' = acc * 2 + (if b then 1 else 0)
                                in acc' `seq` f acc' xs
                      _      -> Nothing
@@ -58,7 +60,7 @@ bitsToNum vs = f (length vs-1) 0 vs
                         _      -> Nothing
 -}
 
-numToBits :: (SubType Bool v, Bits a, Num a) => Int -> a -> [v]
-numToBits n i = map (inj . testBit i) [n-1, n-2..0]
+numToBits :: (Bits a, Num a) => Int -> a -> [Bit]
+numToBits n i = map (fromBool . testBit i) [n-1, n-2..0]
 
 ----------------------------------------
