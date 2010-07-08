@@ -1,9 +1,11 @@
-{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveDataTypeable    #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ParallelListComp      #-}
 
 module Data.Bit where
 
-import Prelude hiding (Ord(..), Eq(..), (&&), (||), not)
+import Prelude hiding (Ord(..), Eq(..), (&&), (||), not, (==))
 import qualified Prelude
 import Data.Generics    ( Data, Typeable )
 
@@ -16,6 +18,30 @@ import Data.Compare
 data Bit
   = F | T | Z | U
   deriving (Prelude.Eq, Prelude.Ord, Show, Bounded, Enum, Data, Typeable)
+
+instance Conditional Bit Bit where
+  ifc T x _ = x
+  ifc F _ y = y
+  ifc _ x y = x == y
+
+-- zzz: a bit of a hack.  what if the lists are different widths?
+instance Conditional Bit [Bit] where
+  ifc T xs _  = xs
+  ifc F _ ys  = ys
+  ifc _ xs ys = [ U | _ <- xs | _ <- ys ]
+
+instance Conditional Bit ([Bit], [Bit]) where
+  ifc T x _ = x
+  ifc F _ y = y
+  ifc _ ~(xs1, xs2) ~(ys1, ys2) = (as, bs)
+    where
+      as = [ U | _ <- xs1 | _ <- ys1 ]
+      bs = [ U | _ <- xs2 | _ <- ys2 ]
+
+isKnown :: Bit -> Bool
+isKnown T = True
+isKnown F = True
+isKnown _ = False
 
 fromBool :: Bool -> Bit
 fromBool True  = T
@@ -48,11 +74,21 @@ instance Boolean Bit where
   not F     = T
   not _     = U
 
+  nand T T  = F
+  nand F _  = T
+  nand _ F  = T
+  nand _ _  = U
+
   xor T T   = F
   xor F F   = F
   xor T F   = T
   xor F T   = T
   xor _ _   = U
+
+  nor F F   = T
+  nor T _   = F
+  nor _ T   = F
+  nor _ _   = U
 
   xnor T T  = T
   xnor F F  = T
