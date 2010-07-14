@@ -101,7 +101,9 @@ toNum :: Num a => BitVector -> Maybe a
 toNum (Bits v)
   = case mapM toBool v of
       Just bs -> let n = Prelude.length v
-                     f i b = if b then 2^(n-1-i) else 0
+                     f i b = case internal_endianness of
+                               LittleEndian -> if b then 2^i else 0
+                               BigEndian    -> if b then 2^(n-1-i) else 0
                  in Just $ sum $ zipWith f [0..n-1] bs
       Nothing -> Nothing
 
