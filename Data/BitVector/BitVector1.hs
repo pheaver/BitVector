@@ -143,10 +143,20 @@ resize n' v
   where
     n = length v
 
+-- sign-extend out to 'n' bits.
+-- note: for n <= w, this does nothing
+signExtend :: Int -> BitVector -> BitVector
+signExtend n (Bits xs)
+  = Bits (Prelude.replicate (n-w) msb Prelude.++ xs)
+  where
+    w = Prelude.length xs
+
+    msb = case xs of
+            []    -> F
+            (x:_) -> noZ x
+
 -- cons :: Bit -> BitVector -> BitVector
 -- snoc :: BitVector -> Bit -> BitVector
-
--- TODO signExtend
 
 (++), append :: BitVector -> BitVector -> BitVector
 (++) = append
@@ -482,21 +492,18 @@ bv_gte v0 v1
 
 -- --------------------
 
--- TODO support signed arithmetic
-
 {-# INLINE arithOp #-}
 arithOp :: (Integer -> Integer -> Integer)
         -> Int -> Bool -> BitVector -> BitVector -> BitVector
-arithOp f n _signed x y
-  = case (toNum x, toNum y) of
+arithOp f n signed x y
+  = case (toNum x', toNum y') of
       (Just v1, Just v2) -> fromNum n (f v1 v2)
       _                  -> Bits (Prelude.replicate n U)
+  where
+    x' = if signed then signExtend n x else x
+    y' = if signed then signExtend n y else y
 
 instance Num BitVector where
-  -- TODO handle signs correctly
-  fromInteger i = fromNum (neededBits i + 1) i
-                  -- leave room for sign - this is what Verilog does
-
   (+) = plus' True
   (*) = times' True
   (-) = minus' True
@@ -507,9 +514,13 @@ instance Num BitVector where
 
   negate v = bv_not v + 1
 
-  -- fromInteger n
-  --   | n < 0     = negate (fromInteger (-n))
-  --   | otherwise = BV (neededBits n + 1) n 0
+  fromInteger n
+    | n < 0     = negate (fromInteger (-n))
+    | otherwise = fromNum (neededBits n + 1) n
+
+neg :: Int -> BitVector -> BitVector
+neg w v
+  = plus w True (bv_not v) 1
 
 plus' :: Bool -> BitVector -> BitVector -> BitVector
 plus' signed v0 v1

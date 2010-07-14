@@ -595,6 +595,10 @@ instance Num BitVector where
     | n < 0     = negate (fromInteger (-n))
     | otherwise = BV (neededBits n + 1) n 0
 
+neg :: Int -> BitVector -> BitVector
+neg w v
+  = plus w True (bv_not v) 1
+
 plus' :: Bool -> BitVector -> BitVector -> BitVector
 plus' signed v0 v1
   = plus w signed v0 v1
