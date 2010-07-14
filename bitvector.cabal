@@ -1,0 +1,44 @@
+Name:           bitvector
+version:        0.1
+synopsis:       BitVector Library
+description:    A library for simulating 4-value bits and bit-vectors.
+license:        BSD3
+license-file:   LICENSE
+copyright:      Copyright (c) 2010 Philip Weaver
+author:         Philip Weaver
+maintainer:     philip.weaver@gmail.com
+package-url:    git://github.com/pheaver/BitVector.git
+build-type:     Simple
+cabal-Version:  >= 1.6
+
+-- --------------------------------------------
+-- flags
+-- --------------------------------------------
+
+flag base4
+   Description: Compile using base-4 instead of base-3
+   Default: True
+
+-- --------------------------------------------
+-- the library
+-- --------------------------------------------
+
+library
+   build-depends:       alt-classes == 0.1
+
+   ghc-options:		-Wall
+
+   if flag(base4)
+     build-depends:	base == 4.*
+     build-depends:     syb
+   else
+     build-depends:	base == 3.*
+
+   exposed-modules: Data.Bit,
+                    Data.BitVector,
+                    Data.BitVector.BitVector1,
+                    Data.BitVector.BitVector2,
+                    Data.BitVector.BitVector3,
+                    Data.Endianness
+
+-- --------------------------------------------
