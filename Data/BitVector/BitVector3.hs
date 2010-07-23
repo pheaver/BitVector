@@ -147,7 +147,7 @@ unknown = flip replicate U
 fromBits, fromBitsBE, fromBitsLE :: [Bit] -> BitVector
 fromBits xs   = Bits (Prelude.length xs) xs
 fromBitsBE    = fromBits
-fromBitsLE    = fromBits . reverse
+fromBitsLE    = fromBits . Prelude.reverse
 
 toBits, toBitsBE, toBitsLE :: BitVector -> [Bit]
 toBits = toBitsBE
@@ -157,7 +157,7 @@ toBitsBE (BV w a b)  = [ convertToBit (testBit a i, testBit b i)
                          | i <- [w-1, w-2..0]
                        ]
 
-toBitsLE (Bits _ xs) = reverse xs
+toBitsLE (Bits _ xs) = Prelude.reverse xs
 toBitsLE (BV w a b)  = [ convertToBit (testBit a i, testBit b i)
                          | i <- [0..w-1]
                        ]
@@ -279,6 +279,17 @@ signExtend' n n' x
   = if testBit x (n-1)
     then x .|. Bits.shiftL (2^(n'-n)-1) n
     else x
+
+reverse :: BitVector -> BitVector
+reverse (Bits w xs) = Bits w (Prelude.reverse xs)
+reverse (BV w a b)  = BV w a' b'
+  where
+    a' = f (w-1) a 0
+    b' = f (w-1) b 0
+
+    f 0 x y = if testBit x (w-1) then Bits.setBit y 0 else y
+    f n x y = let y' = if testBit x (w-n-1) then Bits.setBit y n else y
+              in y' `seq` f (n-1) x y'
 
 (++), append :: BitVector -> BitVector -> BitVector
 (++) = append

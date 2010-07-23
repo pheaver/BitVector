@@ -146,7 +146,7 @@ fromBits xs = BV w a'' b''
                      in a' `seq` b' `seq` f (i-1) a' b' ys
 
 fromBitsBE = fromBits
-fromBitsLE = fromBits . reverse
+fromBitsLE = fromBits . Prelude.reverse
 
 toBits, toBitsBE, toBitsLE :: BitVector -> [Bit]
 toBits     = toBitsBE
@@ -244,6 +244,16 @@ signExtend' n n' x
   = if testBit x (n-1)
     then x .|. Bits.shiftL (2^(n'-n)-1) n
     else x
+
+reverse :: BitVector -> BitVector
+reverse (BV w a b)  = BV w a' b'
+  where
+    a' = f (w-1) a 0
+    b' = f (w-1) b 0
+
+    f 0 x y = if testBit x (w-1) then Bits.setBit y 0 else y
+    f n x y = let y' = if testBit x (w-n-1) then Bits.setBit y n else y
+              in y' `seq` f (n-1) x y'
 
 (++), append :: BitVector -> BitVector -> BitVector
 (++) = append

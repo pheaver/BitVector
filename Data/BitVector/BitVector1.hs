@@ -95,7 +95,7 @@ toBitsLE (Bits bs) = maybeReverse LittleEndian bs
 maybeReverse :: Endianness -> [a] -> [a]
 maybeReverse e xs
   | e == internal_endianness = xs
-  | otherwise                = reverse xs
+  | otherwise                = Prelude.reverse xs
 
 toNum :: Num a => BitVector -> Maybe a
 toNum (Bits v)
@@ -159,6 +159,9 @@ signExtend n (Bits xs)
 
 -- cons :: Bit -> BitVector -> BitVector
 -- snoc :: BitVector -> Bit -> BitVector
+
+reverse :: BitVector -> BitVector
+reverse (Bits xs) = Bits (Prelude.reverse xs)
 
 (++), append :: BitVector -> BitVector -> BitVector
 (++) = append
