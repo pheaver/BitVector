@@ -108,40 +108,22 @@ instance Eq Bit Bit where
   (==) = xnor
   (/=) = xor
 
--- not 100% sure about this one
 instance Compare Bit where
-  min F _ = F
-  min _ F = F
-  min T T = T
-  min _ _ = U
+  min = (&&)
+  max = (||)
 
-  max T _ = T
-  max _ T = T
-  max F F = F
-  max _ _ = U
-
--- not 100% sure about this one
--- in Verilog simulation, (at least iverilog) 1 >= U (and U <= 1) is defined,
--- but 0 <= U (and U >= 0) is undefined
 instance Ord Bit Bit where
   T < _   = F
   F < T   = T
   F < F   = F
   _ < _   = U
 
-  F > _   = F
-  T > F   = T
-  T > T   = F
-  _ > _   = U
-
-  T >= _  = T
-  _ >= F  = T
-  F >= T  = F
-  _ >= _  = U
-
   F <= _  = T
   _ <= T  = T
   T <= F  = F
   _ <= _  = U
+
+  x > y  = y < x
+  x >= y = y <= x
 
 -- --------------------
