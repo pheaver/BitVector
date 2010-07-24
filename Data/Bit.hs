@@ -57,6 +57,9 @@ toBool T = Just True
 toBool F = Just False
 toBool _ = Nothing
 
+unknown :: Bit
+unknown = U
+
 instance Boolean Bit where
   true      = T
   false     = F
